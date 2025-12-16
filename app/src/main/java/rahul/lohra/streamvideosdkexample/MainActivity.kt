@@ -2,6 +2,7 @@ package rahul.lohra.streamvideosdkexample
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,14 +39,19 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import io.getstream.android.push.firebase.FirebasePushDeviceGenerator
 import io.getstream.log.Priority
 import io.getstream.video.android.core.StreamVideo
 import io.getstream.video.android.core.StreamVideoBuilder
 import io.getstream.video.android.core.logging.HttpLoggingLevel
 import io.getstream.video.android.core.logging.LoggingLevel
 import io.getstream.video.android.core.notifications.NotificationConfig
-import io.getstream.video.android.core.permission.android.StreamPermissionCheck
+import io.getstream.video.android.core.notifications.NotificationHandler
+import io.getstream.video.android.core.notifications.internal.service.CallServiceConfig
+import io.getstream.video.android.core.notifications.internal.service.CallServiceConfigRegistry
+import io.getstream.video.android.model.StreamCallId
 import io.getstream.video.android.model.User
+import io.getstream.video.android.ui.common.StreamCallActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,8 +81,21 @@ val appUsers = arrayListOf<String>("tony", "steve", "peter", "sam")
 
 @Composable
 fun LoginScreen(onClick: (String) -> Unit) {
-    Box(Modifier.fillMaxSize().padding(14.dp), contentAlignment = Alignment.Center) {
+    var fcmToken by remember { mutableStateOf("EMPTY_TOKEN") }
+    LaunchedEffect(Unit) {
+        fcmToken = FirebaseTokenManager.awaitFCMToken() ?: "EMPTY_TOKEN"
+        Log.d("Noob", "fcm token: $fcmToken")
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .padding(14.dp), contentAlignment = Alignment.Center
+    ) {
         Column {
+
+            Text("Fcm Token: $fcmToken", fontSize = 12.sp)
+            Spacer(Modifier.height(12.dp))
             Text("Select the user to login", fontSize = 26.sp)
             Spacer(Modifier.height(48.dp))
             HorizontalDivider()
@@ -119,11 +137,22 @@ fun RootUi(modifier: Modifier = Modifier, navController: NavHostController) {
 @Composable
 fun UserScreen(username: String) {
     val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         initSdk(context, username)
     }
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(14.dp)) {
+    var fcmToken by remember { mutableStateOf("EMPTY_TOKEN") }
+    LaunchedEffect(Unit) {
+        fcmToken = FirebaseTokenManager.awaitFCMToken() ?: "EMPTY_TOKEN"
+        Log.d("Noob", "fcm token: $fcmToken")
+    }
+
+    Box(
+        contentAlignment = Alignment.Center, modifier = Modifier
+            .fillMaxSize()
+            .padding(14.dp)
+    ) {
         var selectedUsers by remember { mutableStateOf(setOf<String>()) }
 
         Column {
@@ -180,14 +209,15 @@ fun UserScreen(username: String) {
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                val context = LocalContext.current
                 Button({
-                    performCall(selectedUsers.toList(), false)
+                    performCall(selectedUsers.toList(), false, context)
                 }) {
                     Text("Audio Call")
                 }
                 Spacer(Modifier.width(16.dp))
                 Button({
-                    performCall(selectedUsers.toList(), true)
+                    performCall(selectedUsers.toList(), true, context)
                 }) {
                     Text("Video Call")
                 }
@@ -200,23 +230,48 @@ private fun initSdk(context: Context, username: String) {
     StreamVideo.removeClient()
     val apiKey = "9k9p69vpa78m"
     val user = User(id = username, name = username.capitalize())
+    val callServiceRegistry = CallServiceConfigRegistry()
+    callServiceRegistry.register("audio_room", CallServiceConfig(true))
+    callServiceRegistry.register("default", CallServiceConfig(true))
+
     StreamVideoBuilder(
         context = context,
         apiKey = apiKey,
         user = user,
+        callServiceConfigRegistry = callServiceRegistry,
         loggingLevel = LoggingLevel(Priority.VERBOSE, HttpLoggingLevel.BODY),
-        token = TokenUtils.createStreamToken(username, "5apyvgdp7pnzes23e4kzkngkybfx9ajqtae2sqjqfp3xrhudrfvst4tznbspwzaa"),
-        notificationConfig = NotificationConfig()
+        token = TokenUtils.createStreamToken(
+            username,
+            "5apyvgdp7pnzes23e4kzkngkybfx9ajqtae2sqjqfp3xrhudrfvst4tznbspwzaa"
+        ),
+        notificationConfig = NotificationConfig(
+            pushDeviceGenerators = listOf(
+                FirebasePushDeviceGenerator(providerName = "firebase", context = context)
+            )
+        )
     )
         .build()
 }
 
-fun performCall(users: List<String>, isVideo: Boolean) {
+fun performCall(users: List<String>, isVideo: Boolean, context: Context) {
     StreamVideo.instanceOrNull()?.let { streamVideo ->
-        val call = streamVideo.call("default", UUID.randomUUID().toString())
+        val callType = if (isVideo) "default" else "audio_room"
+        val callId = UUID.randomUUID().toString()
+        val call = streamVideo.call(callType, callId)
         val scope = CoroutineScope(Dispatchers.IO)
         scope.launch {
             call.create(users, ring = true, video = isVideo)
+                .onSuccess {
+                    val streamCallId = StreamCallId(callType, callId)
+                    val intent = StreamCallActivity.callIntent(
+                        context,
+                        action = NotificationHandler.ACTION_OUTGOING_CALL,
+                        cid = streamCallId,
+                        members = users,
+                        clazz = MyCallActivity::class.java
+                    )
+                    context.startActivity(intent)
+                }
         }
     }
 }

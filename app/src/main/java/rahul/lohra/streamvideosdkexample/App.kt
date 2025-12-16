@@ -1,21 +1,43 @@
 package rahul.lohra.streamvideosdkexample
 
 import android.app.Application
+import android.os.Build
 import android.util.Base64
+import android.util.Log
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.google.android.gms.tasks.OnCompleteListener
+import com.google.firebase.FirebaseApp
+import com.google.firebase.messaging.FirebaseMessaging
 import io.getstream.log.taggedLogger
 import io.getstream.video.android.core.StreamVideoBuilder
 import io.getstream.video.android.model.User
 import org.json.JSONException
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import java.util.Date
 
 class App: Application() {
 
+    val TAG = "App"
     override fun onCreate() {
         super.onCreate()
+        FirebaseApp.initializeApp(this)
+
+        FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w(TAG, "Fetching FCM registration token failed", task.exception)
+                return@OnCompleteListener
+            }
+
+            // Get new FCM registration token
+            val token = task.result
+
+            // Log and toast
+            val msg = "FCM token: $token"
+            Log.d(TAG, msg)
+        })
     }
 
     private fun initSdk(){
@@ -92,14 +114,39 @@ object TokenUtils {
             .sign(algorithm)
     }
 
+    fun createStreamToken1(userId: String, secret: String): String {
+        require(userId.isNotBlank()) { "User ID cannot be empty" }
+
+        val algorithm = Algorithm.HMAC256(secret)
+        val issuedDate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Date.from(Instant.now())
+        }else {
+            Date(System.currentTimeMillis())
+        }
+        Log.d("Noob", "issuedDate: $issuedDate")
+        return JWT.create()
+            .withClaim("user_id", userId) // REQUIRED by Stream
+            .withIssuedAt(issuedDate)
+            .sign(algorithm)
+    }
+
     fun createStreamToken(userId: String, secret: String): String {
         require(userId.isNotBlank()) { "User ID cannot be empty" }
 
         val algorithm = Algorithm.HMAC256(secret)
 
+        // Subtract 10 seconds to account for clock skew
+        val issuedDate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Date.from(Instant.now().minusSeconds(10))
+        } else {
+            Date(System.currentTimeMillis() - 10000) // 10 seconds in milliseconds
+        }
+
+        Log.d("Noob", "issuedDate: $issuedDate")
+
         return JWT.create()
-            .withClaim("user_id", userId) // REQUIRED by Stream
-            .withIssuedAt(Date(System.currentTimeMillis()))
+            .withClaim("user_id", userId)
+            .withIssuedAt(issuedDate)
             .sign(algorithm)
     }
 }

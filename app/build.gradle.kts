@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.gms.google.services)
 }
 
 android {
@@ -51,6 +52,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation)
     implementation("com.auth0:java-jwt:4.5.0")
+    implementation ("io.getstream:stream-android-push-firebase:1.3.2")
+    implementation(libs.firebase.messaging)
 
 
     testImplementation(libs.junit)

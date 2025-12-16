@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1056149704878",
+    "project_id": "rahul-stream-video-sdk-example",
+    "storage_bucket": "rahul-stream-video-sdk-example.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1056149704878:android:70c3f1200995b0de1b1d3f",
+        "android_client_info": {
+          "package_name": "rahul.lohra.streamvideosdkexample"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqmnUwexebedSQlo9iUPiN9ZRJJTNNw8U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

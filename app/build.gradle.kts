@@ -49,7 +49,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material)
     implementation(libs.androidx.navigation)
     implementation("com.auth0:java-jwt:4.5.0")
     implementation ("io.getstream:stream-android-push-firebase:1.3.2")
@@ -64,7 +64,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    val video_sdk = "1.18.0"
+    val video_sdk = "1.18.3-202512241148-SNAPSHOT"
     implementation("io.getstream:stream-video-android-core:${video_sdk}")
     implementation("io.getstream:stream-video-android-ui-compose:$video_sdk")
 

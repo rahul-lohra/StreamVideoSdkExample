@@ -17,11 +17,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material.Button
+import androidx.compose.material.Checkbox
+import androidx.compose.material.Scaffold
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +40,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import io.getstream.android.push.firebase.FirebasePushDeviceGenerator
 import io.getstream.log.Priority
+import io.getstream.video.android.compose.theme.VideoTheme
 import io.getstream.video.android.core.StreamVideo
 import io.getstream.video.android.core.StreamVideoBuilder
 import io.getstream.video.android.core.logging.HttpLoggingLevel
@@ -51,6 +51,7 @@ import io.getstream.video.android.core.notifications.internal.service.CallServic
 import io.getstream.video.android.core.notifications.internal.service.CallServiceConfigRegistry
 import io.getstream.video.android.model.StreamCallId
 import io.getstream.video.android.model.User
+import io.getstream.video.android.model.UserType
 import io.getstream.video.android.ui.common.StreamCallActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,7 +99,7 @@ fun LoginScreen(onClick: (String) -> Unit) {
             Spacer(Modifier.height(12.dp))
             Text("Select the user to login", fontSize = 26.sp)
             Spacer(Modifier.height(48.dp))
-            HorizontalDivider()
+//            HorizontalDivider()
             appUsers.forEach {
                 Box(
                     Modifier
@@ -111,7 +112,7 @@ fun LoginScreen(onClick: (String) -> Unit) {
                 ) {
                     Text(it.capitalize(Locale.US), fontSize = 26.sp)
                 }
-                HorizontalDivider()
+//                HorizontalDivider()
             }
         }
     }
@@ -129,13 +130,27 @@ fun RootUi(modifier: Modifier = Modifier, navController: NavHostController) {
             // Extract the username from the route
             val username = backStackEntry.arguments?.getString("username") ?: "Unknown User"
             // A simple screen to show the selected user
-            UserScreen(username)
+            UserScreen(username, {
+                navController.navigate("livestream_host")
+            }, {
+                navController.navigate("livestream_guest")
+            })
+        }
+        composable("livestream_host") {
+            VideoTheme {
+                LiveHost(navController, "demo")
+            }
+        }
+        composable("livestream_guest") {
+            VideoTheme {
+                LiveGuest(navController, "demo")
+            }
         }
     }
 }
 
 @Composable
-fun UserScreen(username: String) {
+fun UserScreen(username: String, onLiveClick:()->Unit, onGuestClick:()->Unit) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -163,7 +178,7 @@ fun UserScreen(username: String) {
             Spacer(Modifier.height(16.dp))
             Text("Select user to call", fontSize = 26.sp)
             Spacer(Modifier.height(48.dp))
-            HorizontalDivider()
+//            HorizontalDivider()
             appUsers.filter { it != username }.forEach { user ->
                 Box(
                     Modifier
@@ -205,7 +220,7 @@ fun UserScreen(username: String) {
                     }
 
                 }
-                HorizontalDivider()
+//                HorizontalDivider()
             }
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -222,6 +237,37 @@ fun UserScreen(username: String) {
                     Text("Video Call")
                 }
             }
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                val context = LocalContext.current
+                Button({
+                    onLiveClick()
+                }) {
+                    Text("Host LiveStream")
+                }
+                Spacer(Modifier.width(16.dp))
+                Button({
+                    onGuestClick()
+                }) {
+                    Text("Guest Livestream")
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                val context = LocalContext.current
+                Button({
+                    performLogout()
+                }) {
+                    Text("Log out")
+                }
+                Spacer(Modifier.width(16.dp))
+                Button({
+//                    performLivestreamCall(false, context)
+                }) {
+//                    Text("Guest Livestream")
+                }
+            }
         }
     }
 }
@@ -229,7 +275,11 @@ fun UserScreen(username: String) {
 private fun initSdk(context: Context, username: String) {
     StreamVideo.removeClient()
     val apiKey = "9k9p69vpa78m"
-    val user = User(id = username, name = username.capitalize())
+    val user = User(
+        id = username,
+        name = username.capitalize(),
+        type = UserType.Authenticated,
+    )
     val callServiceRegistry = CallServiceConfigRegistry()
     callServiceRegistry.register("audio_room", CallServiceConfig(true))
     callServiceRegistry.register("default", CallServiceConfig(true))
@@ -276,11 +326,32 @@ fun performCall(users: List<String>, isVideo: Boolean, context: Context) {
     }
 }
 
+fun performLivestreamCall(isHost: Boolean, context: Context) {
+    StreamVideo.instanceOrNull()?.let { streamVideo ->
+        val callType = "livestream"
+        val callId = UUID.randomUUID().toString()
+        val call = streamVideo.call(callType, callId)
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+        }
+    }
+}
+
+fun performLogout() {
+    StreamVideo.instanceOrNull()?.let { streamVideo ->
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            streamVideo.logOut()
+            streamVideo.cleanup()
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun UserScreenDemo() {
     StreamVideoSdkExampleTheme {
-        UserScreen("Tony")
+        UserScreen("Tony", {}, {})
     }
 }
 
